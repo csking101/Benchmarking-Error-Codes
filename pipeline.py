@@ -232,7 +232,7 @@ class Frame:
 
 
 class MessageBatch:
-  def __init__(self,message_length: int = 6,batch_size: int = 32,message_data_array=None,protocol: str = "802.3"):
+  def __init__(self,message_length: int = 6,batch_size: int = 32,message_data_array=[],protocol: str = "802.3"):
     #The format specifies what type of frame will be sent across, the default is the frame for ethernet
     self.message_length = message_length
     self.batch_size = batch_size
@@ -243,7 +243,7 @@ class MessageBatch:
     self.generate_batch()
 
   def generate_batch(self):
-    if self.message_data is not None:
+    if self.message_data_array != []:
       #If there aren't any custom messages
       for _ in range(self.batch_size):
         self.messages.append(Frame(message_data = generate_random_ascii_string(self.message_length),protocol=self.protocol))
@@ -277,37 +277,8 @@ def timing_function(func):
 
     return wrapper
 
-
-import matlab.engine
-eng = matlab.engine.start_matlab()
-print(eng)
-
-def hamming_encode(data):
-    # Convert input data to MATLAB array
-    data = matlab.double(data)
-
-    # Call MATLAB function for Hamming code encoding
-    encoded = eng.encode(data,7,4,'hamming/binary')
-
-    # Convert output to Python list
-    encoded = list(encoded)
-
-    return encoded
-
-def hamming_decode(encoded):
-    # Convert input data to MATLAB array
-    encoded = matlab.double(encoded)
-
-    # Call MATLAB function for Hamming code decoding
-    decoded = eng.decode(encoded,7,4,'hamming/binary')
-
-    # Convert output to Python list
-    decoded = list(decoded)
-
-    return decoded
-
 #For each type of error code we'll make a module with it extending the base class:
-def ErrorCode():
+class ErrorCode:
   def __init__(self):
     pass
 
@@ -345,15 +316,15 @@ class Benchmark():
     self.code = code
     self.noises = noises
     self.message_batches = []
-    self.noisy_batches = []
-    self.var_args = args
+    self.noisy_batches = []#It will create a 2d list, where the 1st list corresponds to the first noise function and so on
+    self.batch_size = batch_size
+    self.verbose = verbose
+    self.args = args
 
     self.generate_message_batches()
     self.encode()
     self.apply_noise_functions()
     self.decode()
-
-
 
   def generate_message_batches(self):
     #Generate message batches of different lengths and protocols
@@ -380,34 +351,39 @@ class Benchmark():
       message_batch.apply(self.code.encode,*self.args)
 
   def apply_noise_functions(self):
-    for message_batch in self.message_batches:
-      temp = message_batch
-      for noise_function in self.noises:
-        temp.apply(noise_function)
-        self.noisy_batches.append(temp)
+    #It will create a 2d list, where the 1st list corresponds to the first noise function and so on
+    for noise_function in self.noises:
+      temp = []
+      for message_batch in self.message_batches:
+        temp_msg_batch = message_batch
+        temp_msg_batch.apply(noise_function)
+        temp.append(temp_msg_batch)
+      self.noisy_batches.append(temp)
 
   def decode(self):
-    for noisy_batch in self.noisy_batches:
-      noisy_batch.apply(self.code.decode,*self.args)
+    for noisy_batch_list in self.noisy_batches:
+      for noisy_batch in noisy_batch_list:
+        noisy_batch.apply(self.code.decode,*self.args)
 
-#We will keep multiple noise functions in a single file and then import those from that file, keep a list maybe
-def apply_noise(encoded):
-  #Take a string and return a string
+# -------------------------------
+#This is for testing purposes
 
+'''
+import matlab.engine
+eng = matlab.engine.start_matlab()
 
-  # Generate random noise with zero mean and standard deviation of 0.1
-  noise = np.random.normal(0, 0.1, len(encoded))
+class HammingCode(ErrorCode):
+    def __init__(self):
+        super().__init__()
 
-  # Add noise to encoded data
-  noisy = np.array(encoded) + noise
-
-  # Clip noisy data to [0, 1]
-  noisy = np.clip(noisy, 0, 1)
-
-  # Convert noisy data back to list
-  noisy = noisy.tolist()
-
-  return noisy
-
-
-eng.quit()
+    def encode(self,data):
+        data = matlab.double(data)
+        encoded = eng.encode(data,7,4,'hamming/binary')
+        encoded = list(encoded)
+        return encoded
+    
+    def decode(self,encoded):
+        encoded = matlab.double(encoded)
+        decoded = eng.decode(encoded,7,4,'hamming/binary')
+        decoded = list(decoded)
+        return decoded'''
