@@ -1,7 +1,7 @@
-import math
-import matlab
-import matlab.engine
-eng = matlab.engine.start_matlab()
+#import math
+#import matlab
+#import matlab.engine
+#eng = matlab.engine.start_matlab()
 
 test_string  = "110010"
 m = []              # initialize empty bit array
@@ -13,7 +13,8 @@ for char in test_string:
 # BCH
 
 # todo - figure out how to find t automatically
-def BCHEncode(m,t):
+def BCHEncode(m):
+    t = 3 # for now this is default
     k = len(m)
     print(t)
     # Calculate the smallest m such that 2^a >= k + t + 1
@@ -31,13 +32,15 @@ def BCHDecode(code,n,k):
 
 # Reed Solomon Code
 # m = bits per symbol
-def RSEncode(msg,m):
+def RSEncode(msg):
+    m = 3#Apparenty default
     n = matlab.double(2**m -1)
     k = matlab.double(len(msg))
     code = eng.rs_encode(matlab.double(msg),matlab.double(m),n,k)
     return code[0]
 
-def RSDecode(code,m,k):
+def RSDecode(code,k):
+    m = 3#Apparenty default
     n = matlab.double(2**m -1)
     decoded, cnumerr, ccode = eng.rs_decode(matlab.double(code),matlab.double(m),n,k,nargout = 3)
     print(decoded[0])

@@ -1,7 +1,7 @@
-import matlab
-import matlab.engine
-import numpy as np
-eng = matlab.engine.start_matlab()
+#import matlab
+#import matlab.engine
+#import numpy as np
+#eng = matlab.engine.start_matlab()
 
 
 def ImpulseNoise(binary_data,p):
