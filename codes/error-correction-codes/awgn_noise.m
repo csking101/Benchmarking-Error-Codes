@@ -1,5 +1,5 @@
-% txData = [0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0];
-% rxData = noise_awgn(txData, 0.1);
+%txData = [0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0];
+%rxData = awgn_noise(txData, 0.1);
 
 function rxData = awgn_noise(txData, SNR)
     txData = transpose(txData);

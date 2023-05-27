@@ -1,5 +1,11 @@
 import random
 
+import math
+import numpy as np
+import matlab
+import matlab.engine
+eng = matlab.engine.start_matlab()
+
 def generate_random_binary_string(length: int) -> str:
   #The length is in bits
     binary_string = ''
@@ -232,13 +238,153 @@ def message_gen(message_data: str = "random",#Minimum is 46 bytes,that is length
 import csv
 
 #Csv store: [protocol,total_length,message_content,message itself]
-from main import BCHEncode,BCHDecode,RSEncode,RSDecode,Conv213_Encode,Conv213_Decode
-from noise_functions import *
+#import matlab
+#import matlab.engine
+#import numpy as np
+#eng = matlab.engine.start_matlab()
+#import math
+#import matlab
+#import matlab.engine
+#eng = matlab.engine.start_matlab()
 
-import math
-import matlab
-import matlab.engine
-eng = matlab.engine.start_matlab()
+test_string  = "110010"
+m = []              # initialize empty bit array
+
+# loop through each character of the binary string and append to bit array
+for char in test_string:
+    m.append(int(char))
+
+# BCH
+def pad_binary_list(binary_string, n):
+    padded_string = binary_string.zfill(n)
+    return [int(x) for x in padded_string]
+
+
+# todo - figure out how to find t automatically
+def BCHEncode(m):
+    l = len(m)
+    print(l)
+    n = 2**12 -1
+    possible_k = eng.bchnumerr(matlab.double(n))
+    mini = 2**12 - 1
+    for t in possible_k:
+        pk = t[1]
+        if pk >=l and pk-l < mini:
+            k = pk
+            mini = pk - l
+    string_m = "".join([str(x) for x in m])
+    k = int(k)
+    new_m = pad_binary_list(string_m,k)
+    # print(m, new_m)
+    c = eng.bch_encode(matlab.double(new_m),matlab.double(n),matlab.double(k))
+    return c[0]
+
+
+def BCHDecode(code,l):
+    n = 2**12 -1
+    possible_k = eng.bchnumerr(matlab.double(n))
+    mini = 2**12 - 1
+    for t in possible_k:
+        pk = t[1]
+        if pk >=l and pk-l < mini:
+            k = pk
+            mini = pk - l
+    k = int(k)
+    decoded, cnumerr, ccode = eng.bch_decode(matlab.double(code),matlab.double(n),matlab.double(k),nargout=3)
+    print()
+    print(len(decoded[0]))
+    # print(k-l)
+    print(len(decoded[0][k-l:]))
+    # print(cnumerr)
+    # print(len(ccode))
+
+    return decoded[0][k-l:]
+
+# Reed Solomon Code
+# m = bits per symbol
+def RSEncode(msg):
+    m = 3#Apparenty default
+    l = len(msg)
+    n = 2**12 -1
+    possible_k = eng.bchnumerr(matlab.double(n))
+    mini = 2**12 - 1
+    for t in possible_k:
+        pk = t[1]
+        if pk >=l and pk-l < mini:
+            k = pk
+            mini = pk - l
+    k = int(k)
+    string_m = "".join([str(x) for x in msg])
+    k = int(k)
+    new_m = pad_binary_list(string_m,k)
+    code = eng.rs_encode(matlab.double(new_m),matlab.double(m),n,k)
+    return code[0]
+
+def RSDecode(code,l):
+    m = 3#Apparenty default
+    n = 2**12 -1
+    possible_k = eng.bchnumerr(matlab.double(n))
+    mini = 2**12 - 1
+    for t in possible_k:
+        pk = t[1]
+        if pk >=l and pk-l < mini:
+            k = pk
+            mini = pk - l
+    k = int(k)
+    decoded, cnumerr, ccode = eng.rs_decode(matlab.double(code),matlab.double(m),n,k,nargout = 3)
+    print(decoded[0])
+    print(cnumerr)
+    print(ccode[0])
+    return decoded[0][k-l:]
+
+# RSDecode(RSEncode(m,3),3,len(m)\
+
+def Conv213_Encode(msg):
+    coded = eng.conv213_encode(matlab.int16(msg))
+    print(coded[0])
+    return coded[0]
+
+
+def Conv213_Decode(code):
+    decoded = eng.conv213_decode(matlab.int16(code)) 
+    ans = [int(x) for x in decoded[0]]
+    print(ans)
+    return ans
+
+# Conv213_Decode(Conv213_Encode(m),len(m))
+
+
+def ImpulseNoise(binary_data,p):
+    noisy_data = eng.impulse_noise(matlab.single(binary_data),matlab.double(p))
+    noisy_data  = np.asarray(noisy_data)
+    noisy_data = noisy_data.flatten().astype(int).tolist()
+    print(noisy_data)
+    return noisy_data
+
+def RayleighFading(binary_data):
+    noisy_data = eng.rayleigh(matlab.single(binary_data))
+    noisy_data  = np.asarray(noisy_data)
+    noisy_data = noisy_data.flatten().astype(int).tolist()
+    print(noisy_data)
+    return noisy_data
+
+
+def RicianFading(binary_data):
+    noisy_data = eng.rician(matlab.single(binary_data))
+    noisy_data  = np.asarray(noisy_data)
+    noisy_data = noisy_data.flatten().astype(int).tolist()
+    print(noisy_data)
+    return noisy_data
+# RicianFading([0 for _ in range(100)])\
+
+def AWGN(binary_data,snr):
+    noisy_data = eng.awgn_noise(matlab.single(binary_data),matlab.double(snr))
+    noisy_data  = np.asarray(noisy_data)
+    noisy_data = noisy_data.flatten().astype(int).tolist()
+    print(noisy_data)
+    return noisy_data
+
+
 
 def ber(str1: str,str2: str) -> float:
 	assert(len(str1) == len(str2))
@@ -248,23 +394,23 @@ def ber(str1: str,str2: str) -> float:
 			total_errors += 1
 	return total_errors/len(str1)
 
-
-
+# ans = timing_function(Conv213_Decode)(Conv213_Encode([1,0,0,1,1,1,1]),7)
+#print("Answer:",ans)
 with open('test.csv','w') as f:
-	writer = csv.writer(f)
-	writer.writerow(["Protocol","Total Length","Redundant Bits","Bit Error Rate","Code","Noise Function","Noise Parameter","Encoding Time","Decoding Time","Message"])
-	for protocol in ["802.1d","802.3","802.6","802.11","802.15.1","802.15.4","802.16"]:
-		for length in [i for i in range(20,201,10)]:
-			random_msg_content = generate_random_ascii_string(length)
-			random_msg_frame = message_gen(random_msg_content)
-			total_length = len(random_msg_frame)
-			encoded_msg,encoding_time = timing_function(Conv213_Encode)(random_msg_frame)
-			redundant_bits = len(encoded_msg) - total_length
-			for noise_func in [RayleighFading,RicianFading]:
-				noisy_bits = noise_func(encoded_msg)
-				decoded_msg,decoding_time = timing_function(Conv213_Decode)(noisy_bits,len(noisy_bits))
-				bit_error_rate = ber(random_msg_frame,decoded_msg)
-				f.writerow([protocol,total_length,redundant_bits,bit_error_rate,"Convolution",noise_func.__name__,"None",encoding_time,decoding_time,random_msg_frame])
+    writer = csv.writer(f)
+    writer.writerow(["Protocol","Total Length","Redundant Bits","Bit Error Rate","Code","Noise Function","Noise Parameter","Encoding Time","Decoding Time","Message"])
+    for protocol in ["802.1d","802.3","802.6","802.11","802.15.1","802.15.4","802.16"]:
+        for length in [i for i in range(20,181,10)]:
+            random_msg_content = generate_random_ascii_string(length)
+            random_msg_frame = message_gen(random_msg_content)
+            total_length = len(random_msg_frame)
+            encoded_msg,encoding_time = timing_function(BCHEncode)([int(i) for i in random_msg_frame])
+            redundant_bits = len(encoded_msg)
+            for noise_func in [RayleighFading,RicianFading]:
+                noisy_bits = noise_func(encoded_msg)
+                decoded_msg,decoding_time = timing_function(BCHDecode)(noisy_bits,total_length)
+                bit_error_rate = ber(random_msg_frame,decoded_msg)
+                writer.writerow([protocol,total_length,redundant_bits,bit_error_rate,"BCH",noise_func.__name__,"None",encoding_time,decoding_time,random_msg_frame])
 
 
 #for protocol in  ["802.1d","802.3","802.6","802.11","802.15.1","802.15.4","802.16"]:
